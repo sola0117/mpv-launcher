@@ -1,0 +1,13 @@
+{
+    "mode": "playback",
+    "playback": {
+        "fullscreen": true,
+        "display": 1,
+        "autoplay": false
+    },
+    "preview": {
+        "fullscreen": false,
+        "display": "current",
+        "autoplay": true
+    }
+}
