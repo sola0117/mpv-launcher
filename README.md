@@ -1,6 +1,6 @@
 # mpv-launcher
 
-mpvをStreamDeckやダブルクリックから操作するためのランチャーです。
+**Windows 専用**のランチャースクリプトです。PowerShell / Batch スクリプトで実装されており、mpv をStreamDeck やダブルクリックから操作します。
 
 ---
 
@@ -177,31 +177,6 @@ WindowsではIPCに名前付きパイプを使用しています。
 ```
 \\.\pipe\mpvsocket
 ```
-
----
-
-## Mac版
-
-### mpv.conf
-
-mpv.confに設定するのは以下の1項目のみにしてください。
-
-```ini
-input-ipc-server=/tmp/mpvsocket
-```
-
-> **注意**: `pause` / `keep-open` / `loop-file` / `fullscreen` / `screen` などをmpv.confに設定すると、ランチャーの動作を上書きしてしまいます。
-> 特に `pause`（autoplay）・`fullscreen`・`screen`（display）はconfig.jsonで制御しているため、mpv.confには記述しないでください。
-
-### 保存場所
-
-```
-~/.config/mpv/mpv.conf
-```
-
-### ダブルクリックで開く設定
-
-AutomatorでMPV Launcherアプリを作成して関連付けを行います。
 
 ---
 
