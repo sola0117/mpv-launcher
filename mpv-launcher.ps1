@@ -11,74 +11,96 @@ public class Win32 {
 }
 "@
 
+Import-Module "$PSScriptRoot\mpv-ipc.psm1" -Force
+
 # 設定ファイルを読み込む
-$config = Get-Content "$env:LOCALAPPDATA\mpv-launcher\config.json" | ConvertFrom-Json
-$mode = $config.mode
+$configPath = "$env:LOCALAPPDATA\mpv-launcher\config.json"
+if (-not (Test-Path $configPath)) {
+    Write-Error "設定ファイルが見つかりません: $configPath"
+    exit 1
+}
+
+try {
+    $config = Get-Content $configPath -Raw | ConvertFrom-Json
+}
+catch {
+    Write-Error "設定ファイルの読み込みに失敗しました: $_"
+    exit 1
+}
+
+$mode       = $config.mode
 $modeConfig = $config.$mode
 
-$autoplay = $modeConfig.autoplay
-$fullscreen = $modeConfig.fullscreen
-$display = $modeConfig.display
+if (-not $modeConfig) {
+    Write-Error "モード '$mode' の設定が config.json に見つかりません"
+    exit 1
+}
 
-# mpvの起動オプションを組み立て
-$pauseOption = if ($autoplay) { "" } else { "--pause" }
-$fullscreenOption = if ($fullscreen) { "--fullscreen" } else { "" }
+$autoplay   = [bool]$modeConfig.autoplay
+$fullscreen = [bool]$modeConfig.fullscreen
+$display    = $modeConfig.display
 
 $process = Get-Process mpv -ErrorAction SilentlyContinue
 
 if ($process) {
-    $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "mpvsocket", [System.IO.Pipes.PipeDirection]::InOut)
-    $pipe.Connect(1000)
-    $writer = New-Object System.IO.StreamWriter($pipe)
-    $writer.AutoFlush = $true
-    $filePath = $filePath.Replace('\', '\\')
-    $writer.WriteLine("{""command"": [""loadfile"", ""$filePath""]}")
+    # 既存の mpv インスタンスにファイルを読み込む
+    $escapedPath = $filePath.Replace('\', '\\')
+    $commands    = @("{""command"": [""loadfile"", ""$escapedPath""]}")
+
     if (-not $autoplay) {
-        Start-Sleep -Milliseconds 500
-        $writer.WriteLine('{"command": ["set_property", "pause", true]}')
+        # loadfile 後に mpv がファイルをロードするまで待機してから pause
+        Send-MpvCommand -Commands ($commands + '{"command": ["set_property", "pause", true]}') `
+                        -DelayBetweenCommandsMs 500
     }
-    $writer.Close()
-    $pipe.Close()
-} else {
-    # マウスカーソルの位置を先に取得
+    else {
+        Send-MpvCommand -Commands $commands
+    }
+}
+else {
+    # マウスカーソルの位置を先に取得（display="current" 用）
     $cursorPos = [System.Windows.Forms.Cursor]::Position
 
-    Start-Process -FilePath "mpv" -ArgumentList "--input-ipc-server=\\.\pipe\mpvsocket $pauseOption $fullscreenOption --keep-open=yes --loop-file=no --log-file=`"$env:LOCALAPPDATA\mpv-launcher\mpv.log`" `"$filePath`""
+    # mpv 起動オプションを組み立て
+    $launchArgs = @(
+        "--input-ipc-server=\\.\pipe\mpvsocket"
+        "--keep-open=yes"
+        "--loop-file=no"
+        "--log-file=`"$env:LOCALAPPDATA\mpv-launcher\mpv.log`""
+    )
+    if (-not $autoplay) { $launchArgs += "--pause" }
+    if ($fullscreen)    { $launchArgs += "--fullscreen" }
+    $launchArgs += "`"$filePath`""
 
+    Start-Process -FilePath "mpv" -ArgumentList $launchArgs
+
+    # ウィンドウ配置先を計算
     if ($display -eq "current") {
         $screen = [System.Windows.Forms.Screen]::FromPoint($cursorPos)
-        $sw = $screen.Bounds.Width
-        $sh = $screen.Bounds.Height
-        $w = $sw / 2
-        $h = $sh / 2
-        $x = $screen.Bounds.X + ($sw - $w) / 2
-        $y = $screen.Bounds.Y + ($sh - $h) / 2
-    } else {
+        $sw     = $screen.Bounds.Width
+        $sh     = $screen.Bounds.Height
+        $w      = [int]($sw / 2)
+        $h      = [int]($sh / 2)
+        $x      = $screen.Bounds.X + [int](($sw - $w) / 2)
+        $y      = $screen.Bounds.Y + [int](($sh - $h) / 2)
+    }
+    else {
         $screens = [System.Windows.Forms.Screen]::AllScreens
-        $screen = if ($display -lt $screens.Count) { $screens[$display] } else { $screens[0] }
+        $screen  = if ([int]$display -lt $screens.Count) { $screens[[int]$display] } else { $screens[0] }
         $x = $screen.Bounds.X
         $y = $screen.Bounds.Y
         $w = $screen.Bounds.Width
         $h = $screen.Bounds.Height
     }
 
-    # 250ms待機してからウィンドウ検索開始
+    # mpv ウィンドウが表示されるまで待機（初回 250ms + 最大 1000ms ポーリング）
     Start-Sleep -Milliseconds 250
-
-    $maxAttempts = 10
-    $attempt = 0
-    $process = $null
-
-    while ($attempt -lt $maxAttempts) {
+    for ($i = 0; $i -lt 10; $i++) {
         $process = Get-Process mpv -ErrorAction SilentlyContinue
-        if ($process -and $process.MainWindowHandle -ne 0) {
-            break
-        }
+        if ($process -and $process.MainWindowHandle -ne [IntPtr]::Zero) { break }
         Start-Sleep -Milliseconds 100
-        $attempt++
     }
 
-    if ($process -and $process.MainWindowHandle -ne 0) {
+    if ($process -and $process.MainWindowHandle -ne [IntPtr]::Zero) {
         [Win32]::MoveWindow($process.MainWindowHandle, $x, $y, $w, $h, $true)
     }
 }
