@@ -22,8 +22,9 @@ C:\Users\<ユーザー名>\AppData\Local\mpv-launcher\
 ├── play-pause.vbs         # StreamDeck用（play-pause.ps1を呼び出す）
 ├── loop-toggle.ps1        # ループON/OFF切り替え
 ├── loop-toggle.vbs        # StreamDeck用（loop-toggle.ps1を呼び出す）
-├── go-to-start.ps1        # 最初のフレームに戻る
-├── go-to-start.vbs        # StreamDeck用（go-to-start.ps1を呼び出す）
+├── firstframe.ps1         # 最初のフレームに戻る
+├── firstframe.vbs         # StreamDeck用（firstframe.ps1を呼び出す）
+├── mpv-ipc.psm1           # IPC通信モジュール（各スクリプトから使用）
 ├── set-audio-device.bat   # 音声デバイス選択
 ├── set-audio-device.ps1   # 音声デバイス選択（本体）
 ├── config.json            # 動作モード設定
@@ -148,7 +149,7 @@ mkdir "$env:LOCALAPPDATA\mpv-launcher"
 |--------|---------|
 | 再生/停止 | `play-pause.vbs` |
 | ループON/OFF | `loop-toggle.vbs` |
-| 最初のフレームに戻る | `go-to-start.vbs` |
+| 最初のフレームに戻る | `firstframe.vbs` |
 
 ---
 
