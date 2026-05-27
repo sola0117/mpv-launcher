@@ -7,6 +7,9 @@
     各コントロールスクリプトから Import-Module して使用します。
 #>
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding           = [System.Text.Encoding]::UTF8
+
 $Script:PipeName       = "mpvsocket"
 $Script:ConnectTimeout = 1000   # ms
 
