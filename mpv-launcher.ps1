@@ -1,4 +1,4 @@
-param([string]$filePath)
+﻿param([string]$filePath)
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding           = [System.Text.Encoding]::UTF8
@@ -64,17 +64,20 @@ else {
     $cursorPos = [System.Windows.Forms.Cursor]::Position
 
     # mpv 起動オプションを組み立て
+    $logPath = "$env:LOCALAPPDATA\mpv-launcher\mpv.log"
     $launchArgs = @(
         "--input-ipc-server=\\.\pipe\mpvsocket"
         "--keep-open=yes"
         "--loop-file=no"
-        "--log-file=`"$env:LOCALAPPDATA\mpv-launcher\mpv.log`""
+        ('--log-file="' + $logPath + '"')
     )
     if (-not $autoplay) { $launchArgs += "--pause" }
     if ($fullscreen)    { $launchArgs += "--fullscreen" }
-    $launchArgs += "`"$filePath`""
 
-    Start-Process -FilePath "mpv" -ArgumentList $launchArgs
+    # Start-Processは引数配列を空白で連結するため、空白を含むファイルパスは
+    # 明示的な引用符を含む単一の引数文字列として渡す。
+    $argumentString = ($launchArgs -join " ") + ' "' + $filePath + '"'
+    Start-Process -FilePath "mpv" -ArgumentList $argumentString
 
     # ウィンドウ配置先を計算
     if ($display -eq "current") {
